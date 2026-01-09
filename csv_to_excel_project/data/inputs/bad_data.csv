@@ -1,0 +1,5 @@
+id,nom,age,ville
+1,Jean,30,Paris
+2,Marie,25,Lyon
+3,Paul,40,Marseille,ERREUR,TROP,DE,DONNEES,ICI
+4,Sophie,35,Toulouse

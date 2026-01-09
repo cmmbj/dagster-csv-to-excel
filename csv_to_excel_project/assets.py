@@ -10,74 +10,71 @@ from dagster import asset, AssetExecutionContext
 @asset
 def convert_all_csvs(context: AssetExecutionContext):
     """
-    Cet asset scanne le dossier 'inputs', trouve tous les fichiers CSV,
-    et les convertit en Excel en gardant le même nom.
+    Asset robuste : convertit les CSV en Excel et gère les erreurs
+    sans arrêter le processus complet.
     """
-
+    
     # --- ÉTAPE 1 : DÉFINITION DES DOSSIERS ---
-
-    # Récupération du dossier où se trouve ce script (assets.py)
     current_dir = os.path.dirname(__file__)
-
-    # Chemin du dossier d'entrée (où sont les CSV)
     inputs_folder = os.path.join(current_dir, "data", "inputs")
-
-    # Chemin du dossier de sortie (où iront les Excel)
     outputs_folder = os.path.join(current_dir, "data", "outputs")
 
-    # --- ÉTAPE 2 : LISTER LES FICHIERS À TRAITER ---
-
-    # On demande à Python de nous donner la liste de tout ce qu'il y a dans 'data/inputs'
+    # --- ÉTAPE 2 : LISTER LES FICHIERS ---
     all_files = os.listdir(inputs_folder)
-
-    # On crée une liste vide pour stocker les chemins des fichiers traités (pour le rapport final)
-    processed_files = []
-
-    # --- ÉTAPE 3 : LA BOUCLE (TRAITEMENT PAR LOTS) ---
     
-    # On commence une boucle : "Pour chaque fichier (filename) dans la liste (all_files)..."
-    for filename in all_files:
+    # Listes pour le rapport final
+    processed_files = []
+    failed_files = [] 
 
-        # CONDITION : On vérifie si le fichier finit bien par ".csv" (pour ignorer les autres fichiers)
+    # --- ÉTAPE 3 : LA BOUCLE AVEC SÉCURITÉ ---
+    for filename in all_files:
         if filename.endswith(".csv"):
             
-            # --- 3.1 PRÉPARATION DES NOMS ---
-
-            # On construit le chemin complet du fichier source (ex: .../inputs/mon_fichier.csv)
+            # Chemins
             input_path = os.path.join(inputs_folder, filename)
-
-            # ASTUCE : On sépare le nom du fichier de son extension pour récupérer juste le nom
-            # ex: "mon_fichier.csv" devient ("mon_fichier", ".csv") -> on prend le premier élément [0]
             file_root_name = os.path.splitext(filename)[0]
-
-            # On crée le nouveau nom avec l'extension .xlsx
-            # ex: "mon_fichier" + ".xlsx" -> "mon_fichier.xlsx"
             new_filename = file_root_name + ".xlsx"
-
-            # On construit le chemin complet de sortie
             output_path = os.path.join(outputs_folder, new_filename)
 
-            # --- 3.2 CONVERSION ---
+            context.log.info(f"🔄 Tentative de traitement : {filename}")
 
-            # On loggue un message pour dire quel fichier on est en train de traiter
-            context.log.info(f"🔄 Traitement de : {filename} -> {new_filename}")
+            # >>> DÉBUT DE LA ZONE PROTÉGÉE <<<
+            try:
+                # 1. On essaie de lire le CSV
+                # C'est ici que 'bad_data.csv' va déclencher une alerte, mais pas un crash
+                df = pd.read_csv(input_path)
+                
+                # Petite vérification supplémentaire si le fichier est vide
+                if df.empty:
+                    raise ValueError("Le fichier est vide")
 
-            # Lecture du CSV
-            df = pd.read_csv(input_path)
+                # 2. On écrit le fichier Excel
+                df.to_excel(output_path, index=False)
+                
+                # 3. Si on arrive ici, c'est que tout s'est bien passé
+                context.log.info(f"✅ Succès : {new_filename}")
+                processed_files.append(output_path)
 
-            # Écriture en Excel (garder le même nom de base)
-            df.to_excel(output_path, index=False)
-
-            # On ajoute le chemin à notre liste de succès
-            processed_files.append(output_path)
+            except Exception as e:
+                # >>> ZONE DE GESTION D'ERREUR <<<
+                # Si n'importe quoi se passe mal au-dessus, on atterrit ici.
+                error_message = f"❌ ÉCHEC sur {filename}. Raison : {str(e)}"
+                
+                # On note l'erreur en rouge dans les logs
+                context.log.error(error_message)
+                
+                # On ajoute le fichier à la liste des échecs pour le bilan
+                failed_files.append(filename)
             
-            context.log.info(f"✅ Fichier sauvegardé : {output_path}")
+            # >>> FIN DE LA ZONE PROTÉGÉE <<<
 
-    # --- ÉTAPE 4 : FIN ---
-
-    # Si la liste est vide, on prévient qu'on n'a rien trouvé
-    if not processed_files:
-        context.log.warning("⚠️ Aucun fichier CSV trouvé dans le dossier inputs !")
+    # --- ÉTAPE 4 : BILAN FINAL ---
     
-    # On retourne la liste des fichiers créés
+    # On affiche un résumé clair dans les logs
+    if failed_files:
+        context.log.warning(f"⚠️ Terminé avec des erreurs. Fichiers échoués ({len(failed_files)}) : {failed_files}")
+    else:
+        context.log.info("🎉 Tous les fichiers ont été traités sans aucune erreur.")
+
+    # On retourne la liste des fichiers réussis
     return processed_files
