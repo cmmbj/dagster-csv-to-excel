@@ -1,0 +1,14 @@
+[GIT Bash]
+
+1. cd " " : se mettre dans le dossier voulu
+2. git clone https:// : avoir un repo sur son pc
+3. git pull origin [branch] : si le repo est déjà sur le pc
+4. git add . : ajoute tous les fichiers
+5. git commit -m " " : donne desc de tes changements
+6. git push origin [branch] : publie/envoie tes modif
+
+[VS Code]
+
+[Dagster]
+
+[PowerShell]
