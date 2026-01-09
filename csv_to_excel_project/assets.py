@@ -1,50 +1,83 @@
-# Importation du module 'os' pour gérer les chemins de dossiers (Windows/Mac/Linux)
+# Importation du module 'os' pour naviguer dans les dossiers et gérer les noms de fichiers
 import os
 
-# Importation de Pandas, l'outil standard pour manipuler des données, renommé en 'pd'
+# Importation de Pandas pour la manipulation des données
 import pandas as pd
 
-# Importation des outils nécessaires depuis la librairie Dagster
-# 'asset' est le décorateur, 'AssetExecutionContext' permet d'envoyer des logs (messages)
+# Importation des outils Dagster
 from dagster import asset, AssetExecutionContext
 
-# Le décorateur @asset transforme la fonction python ci-dessous en un composant Dagster
 @asset
-def htsdata_excel(context: AssetExecutionContext):
+def convert_all_csvs(context: AssetExecutionContext):
     """
-    Cet asset lit le fichier CSV htsdata et le convertit en fichier Excel.
+    Cet asset scanne le dossier 'inputs', trouve tous les fichiers CSV,
+    et les convertit en Excel en gardant le même nom.
     """
-    
-    # --- ÉTAPE 1 : DÉFINIR LES CHEMINS (PATHS) ---
-    
-    # On récupère le chemin absolu du dossier où se trouve CE fichier (assets.py)
-    # Cela permet d'éviter les erreurs "Fichier non trouvé"
+
+    # --- ÉTAPE 1 : DÉFINITION DES DOSSIERS ---
+
+    # Récupération du dossier où se trouve ce script (assets.py)
     current_dir = os.path.dirname(__file__)
 
-    # On construit le chemin complet vers le fichier CSV d'entrée
-    # Cela correspond à : .../csv_to_excel_project/data/inputs/htsdata (41 to 70).csv
-    input_path = os.path.join(current_dir, "data", "inputs", "htsdata (41 to 70).csv")
+    # Chemin du dossier d'entrée (où sont les CSV)
+    inputs_folder = os.path.join(current_dir, "data", "inputs")
 
-    # On construit le chemin complet vers le futur fichier Excel de sortie
-    output_path = os.path.join(current_dir, "data", "outputs", "htsdata_converti.xlsx")
+    # Chemin du dossier de sortie (où iront les Excel)
+    outputs_folder = os.path.join(current_dir, "data", "outputs")
 
-    # --- ÉTAPE 2 : CHARGEMENT DES DONNÉES ---
+    # --- ÉTAPE 2 : LISTER LES FICHIERS À TRAITER ---
 
-    # On envoie un message dans l'interface de Dagster pour dire qu'on commence
-    context.log.info(f"Lecture du fichier CSV depuis : {input_path}")
+    # On demande à Python de nous donner la liste de tout ce qu'il y a dans 'data/inputs'
+    all_files = os.listdir(inputs_folder)
 
-    # On utilise Pandas pour lire le fichier CSV et le mettre en mémoire (dans une variable 'df')
-    # 'df' signifie DataFrame (c'est comme un tableau Excel virtuel)
-    df = pd.read_csv(input_path)
+    # On crée une liste vide pour stocker les chemins des fichiers traités (pour le rapport final)
+    processed_files = []
 
-    # --- ÉTAPE 3 : SAUVEGARDE EN EXCEL ---
+    # --- ÉTAPE 3 : LA BOUCLE (TRAITEMENT PAR LOTS) ---
+    
+    # On commence une boucle : "Pour chaque fichier (filename) dans la liste (all_files)..."
+    for filename in all_files:
 
-    # On envoie un message pour dire qu'on a réussi à lire et qu'on écrit le fichier
-    context.log.info(f"Écriture du fichier Excel vers : {output_path}")
+        # CONDITION : On vérifie si le fichier finit bien par ".csv" (pour ignorer les autres fichiers)
+        if filename.endswith(".csv"):
+            
+            # --- 3.1 PRÉPARATION DES NOMS ---
 
-    # On demande à Pandas de prendre ce tableau 'df' et de l'écrire en fichier Excel
-    # index=False signifie qu'on ne veut pas ajouter une colonne de numérotation (0, 1, 2...)
-    df.to_excel(output_path, index=False)
+            # On construit le chemin complet du fichier source (ex: .../inputs/mon_fichier.csv)
+            input_path = os.path.join(inputs_folder, filename)
 
-    # On retourne le chemin final pour que Dagster puisse l'afficher ou l'utiliser plus tard
-    return output_path
+            # ASTUCE : On sépare le nom du fichier de son extension pour récupérer juste le nom
+            # ex: "mon_fichier.csv" devient ("mon_fichier", ".csv") -> on prend le premier élément [0]
+            file_root_name = os.path.splitext(filename)[0]
+
+            # On crée le nouveau nom avec l'extension .xlsx
+            # ex: "mon_fichier" + ".xlsx" -> "mon_fichier.xlsx"
+            new_filename = file_root_name + ".xlsx"
+
+            # On construit le chemin complet de sortie
+            output_path = os.path.join(outputs_folder, new_filename)
+
+            # --- 3.2 CONVERSION ---
+
+            # On loggue un message pour dire quel fichier on est en train de traiter
+            context.log.info(f"🔄 Traitement de : {filename} -> {new_filename}")
+
+            # Lecture du CSV
+            df = pd.read_csv(input_path)
+
+            # Écriture en Excel (garder le même nom de base)
+            df.to_excel(output_path, index=False)
+
+            # On ajoute le chemin à notre liste de succès
+            processed_files.append(output_path)
+            
+            context.log.info(f"✅ Fichier sauvegardé : {output_path}")
+
+    # --- ÉTAPE 4 : FIN ---
+
+    # Si la liste est vide, on prévient qu'on n'a rien trouvé
+    if not processed_files:
+        context.log.warning("⚠️ Aucun fichier CSV trouvé dans le dossier inputs !")
+    
+    # On retourne la liste des fichiers créés
+    return processed_files
