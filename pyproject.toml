@@ -1,0 +1,18 @@
+[project]
+name = "csv_to_excel_project"
+
+# La version actuelle du projet
+version = "0.0.1"
+
+# Les librairies que Python doit installer pour que ça marche
+dependencies = [
+    "dagster",           # Le cœur de l'orchestrateur
+    "dagster-webserver", # L'interface visuelle (UI) de Dagster
+    "pandas",            # La librairie pour lire et manipuler les tableaux (CSV/Excel)
+    "openpyxl"           # Un module technique requis par Pandas pour écrire du Excel (.xlsx)
+]
+
+# Une section spéciale pour configurer l'outil Dagster lui-même
+[tool.dagster]
+# Indique à Dagster quel est le nom du dossier qui contient le code (le "module")
+module_name = "csv_to_excel_project"

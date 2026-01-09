@@ -9,6 +9,21 @@
 
 [VS Code]
 
+assets.py : colonne vertébrale du projet. Il va chercher le fichier csv, utilise pandas pour lire le csv, transforme les données, sauveard en .xlsx
+
+__init__.py : rassemble tous les assets, les jobs et ressources dans Definitions (objet). Importe ce que j'ai écrit dans assets.py pour que Dagster puis l'afficher.
+
+pyproject.toml : liste les biblio ext nécessaires (dagster, dagster-webserver, pandas, openpyxl)
+
+data/inputs et outputs : trouver csv et xlsx
+
 [Dagster]
 
+
+
 [PowerShell]
+
+## Server
+pip install -e : installe le projet et télécharge pandas/openpyxl
+
+dagster dev : lance dagster
