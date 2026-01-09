@@ -1,5 +1,3 @@
-
-```markdown
 # 🚀 Projet : Convertisseur Batch CSV vers Excel avec Dagster
 
 Ce projet est un pipeline de données automatisé construit avec **Dagster**. Il permet de convertir **en masse** tous les fichiers `.csv` présents dans un dossier d'entrée vers des fichiers `.xlsx` (Excel), tout en conservant leur nom d'origine.
